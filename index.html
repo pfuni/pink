@@ -1,449 +1,177 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pl">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>🎀🎀 Glosoweczki Karolinki 🎀🎀</title>
-
-<!-- lamejs for MP3 encoding -->
-<script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js"></script>
-<!-- ffmpeg.wasm -->
-<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.7/dist/ffmpeg.min.js"></script>
-
+<meta charset="UTF-8">
+<title>🎙️ Nagrywacz z obrazem</title>
+<script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.6/dist/ffmpeg.min.js"></script>
 <style>
-  :root{
-    --bg1:#fff0f7; --accent:#ff5caa; --card:rgba(255,255,255,0.85);
-  }
-  body{
-    margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
-    background:linear-gradient(180deg,#ffd6ec,#ffeaf6); color:#3b2b34;
-    display:flex;flex-direction:column;align-items:center;padding:28px;
-  }
-  .app{width:100%;max-width:1100px}
-  h1{color:var(--accent);margin:0 0 12px 0;font-weight:700}
-  .controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
-  button,select{border:0;border-radius:12px;padding:10px 16px;font-weight:700;cursor:pointer;box-shadow:0 6px 20px rgba(255,120,170,0.12)}
-  button{background:linear-gradient(180deg,#ff8bc3,#ff5caa);color:white}
-  button.secondary{background:linear-gradient(180deg,#fff,#ffe8f4);color:#ff4f98;box-shadow:none;border:1px solid rgba(255,120,170,0.12)}
-  input[type=file]{display:none}
-  .row{display:flex;gap:10px;align-items:center}
-  #segments{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-bottom:16px}
-  .segment{background:var(--card);backdrop-filter:blur(6px);border-radius:14px;padding:12px;display:flex;flex-direction:column;align-items:center;gap:8px;box-shadow:0 8px 30px rgba(200,100,160,0.06)}
-  .segment input[type="text"]{width:100%;padding:8px;border-radius:10px;border:1px solid rgba(255,200,230,0.6);text-align:center;font-weight:600}
-  .segment audio{width:100%}
-  .segment .seg-controls{display:flex;gap:8px;width:100%;justify-content:center}
-  .progress{width:100%;max-width:680px;height:12px;background:rgba(0,0,0,0.06);border-radius:10px;overflow:hidden;margin:10px 0}
-  .progress > i{display:block;height:100%;width:0;background:linear-gradient(90deg,#ff8bc3,#ff5caa)}
-  .note{color:#7b5f6a;font-size:13px;margin-top:8px}
-  footer{margin-top:20px;color:#7b5f6a;font-size:13px}
-  .small{font-size:13px;color:#7b5f6a}
+body {
+  background: #fce4ec;
+  font-family: "SF Pro Display", sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px;
+}
+h1 {
+  color: #d81b60;
+  margin-bottom: 20px;
+}
+button {
+  background: #ec407a;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 14px;
+  font-size: 16px;
+  cursor: pointer;
+  margin: 10px;
+  transition: 0.2s;
+}
+button:hover {
+  background: #d81b60;
+}
+#segments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+}
+.segment {
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  padding: 12px;
+  width: 160px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.segment input {
+  border: none;
+  border-bottom: 1px solid #ec407a;
+  text-align: center;
+  width: 100%;
+  margin-bottom: 8px;
+}
+.segment button {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+#preview {
+  margin-top: 30px;
+}
 </style>
 </head>
 <body>
-  <div class="app">
-    <h1>🎀 Glosoweczki Karolinki 🎀</h1>
+<h1>🎀 Nagrywacz Audio + Obraz 🎀</h1>
+<button id="recordBtn">🎙️ Rozpocznij nagrywanie</button>
+<input type="file" id="imageUpload" accept="image/*">
+<button id="exportBtn">📦 Eksportuj jako MP4</button>
 
-    <div class="controls">
-      <button id="recordBtn">🎙️ Nagraj (toggle)</button>
-      <button id="mergeBtn" class="secondary">🔗 Połącz (automatycznie przed eksportem)</button>
-      <button id="exportMp3Btn">💾 Eksportuj MP3</button>
-
-      <label style="display:inline-flex;align-items:center;gap:8px" title="Wgraj zdjęcie do filmu">
-        <input id="imgInput" type="file" accept="image/*"/>
-        <button id="uploadImgBtn" class="secondary">🖼️ Wgraj zdjęcie</button>
-      </label>
-
-      <button id="exportMp4Btn">🎬 Eksportuj MP4</button>
-    </div>
-
-    <div class="progress" aria-hidden="true"><i id="progressBar"></i></div>
-    <div id="status" class="small">Status: gotowy</div>
-
-    <div id="segments"></div>
-
-    <div class="note">Uwaga: MP4 jest generowane lokalnie z użyciem ffmpeg.wasm. Najlepiej użyć Chrome/Edge na localhost/https.</div>
-    <footer>© Pink Mac Recorder</footer>
-  </div>
+<div id="segments"></div>
+<video id="preview" controls width="480"></video>
 
 <script>
-(async ()=>{
-
-/* ---------- Setup ---------- */
-const { createFFmpeg, fetchFile } = FFmpeg;
-const ffmpeg = createFFmpeg({ log: true });
-let ffmpegLoaded = false;
-
 const recordBtn = document.getElementById('recordBtn');
-const mergeBtn = document.getElementById('mergeBtn');
-const exportMp3Btn = document.getElementById('exportMp3Btn');
-const exportMp4Btn = document.getElementById('exportMp4Btn');
-const imgInput = document.getElementById('imgInput');
-const uploadImgBtn = document.getElementById('uploadImgBtn');
-const progressBar = document.getElementById('progressBar');
-const statusEl = document.getElementById('status');
+const exportBtn = document.getElementById('exportBtn');
+const segmentsDiv = document.getElementById('segments');
+const imageUpload = document.getElementById('imageUpload');
+const preview = document.getElementById('preview');
 
-let isRecording=false, mediaRecorder=null, recChunks=[];
-let segments = []; // {blob, name, div}
-let mergedBuffer = null; // AudioBuffer after merge
-let mp3BlobCache = null;
-let selectedImageFile = null;
+let mediaRecorder;
+let chunks = [];
+let recordings = [];
+let recording = false;
+let selectedImage = null;
 
-/* ---------- Recording (toggle) ---------- */
-recordBtn.onclick = async ()=>{
-  if(!isRecording){
-    try{
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorder = new MediaRecorder(stream);
-      recChunks = [];
-      mediaRecorder.ondataavailable = e => { if(e.data && e.data.size) recChunks.push(e.data); };
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(recChunks, { type: 'audio/webm' });
-        addSegment(blob);
-        // stop tracks
-        stream.getTracks().forEach(t=>t.stop());
-      };
-      mediaRecorder.start();
-      isRecording = true;
-      recordBtn.textContent = '⏹️ Zatrzymaj';
-      setStatus('Nagrywanie...');
-    }catch(err){
-      alert('Błąd uzyskania dostępu do mikrofonu: ' + err.message);
-    }
+// === NAGRYWANIE ===
+recordBtn.onclick = async () => {
+  if (!recording) {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = e => chunks.push(e.data);
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(chunks, { type: 'audio/webm' });
+      const url = URL.createObjectURL(blob);
+      const name = "Segment " + (recordings.length + 1);
+      recordings.push({ blob, name });
+      addSegmentUI(name, url);
+      chunks = [];
+    };
+    mediaRecorder.start();
+    recordBtn.textContent = "⏹️ Zatrzymaj nagrywanie";
+    recording = true;
   } else {
-    if(mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
-    isRecording = false;
-    recordBtn.textContent = '🎙️ Nagraj (toggle)';
-    setStatus('Gotowy');
+    mediaRecorder.stop();
+    recordBtn.textContent = "🎙️ Rozpocznij nagrywanie";
+    recording = false;
   }
 };
 
-/* ---------- UI: add / render segments ---------- */
-const segmentsEl = document.getElementById('segments');
-function addSegment(blob){
-  const idx = segments.length + 1;
-  const div = document.createElement('div'); div.className='segment'; div.draggable=true;
-  const nameInput = document.createElement('input'); nameInput.type='text'; nameInput.value = `Segment ${idx}`;
-  nameInput.addEventListener('change', ()=>{ // store name
-    const seg = segments.find(s=>s.div===div);
-    if(seg) seg.name = nameInput.value.trim() || `Segment ${idx}`;
+function addSegmentUI(name, url) {
+  const div = document.createElement('div');
+  div.className = 'segment';
+  div.innerHTML = `
+    <input type="text" value="${name}">
+    <audio controls src="${url}"></audio>
+    <button>🗑️ Usuń</button>
+  `;
+  const input = div.querySelector('input');
+  const del = div.querySelector('button');
+  input.addEventListener('change', () => {
+    const seg = recordings.find(r => r.name === name);
+    if (seg) seg.name = input.value;
   });
-
-  const audio = document.createElement('audio'); audio.controls=true; audio.src = URL.createObjectURL(blob);
-
-  const controls = document.createElement('div'); controls.className='seg-controls';
-  const delBtn = document.createElement('button'); delBtn.textContent='🗑️ Usuń'; delBtn.onclick = ()=>{ removeSegment(div); };
-  const renameBtn = document.createElement('button'); renameBtn.textContent='✏️ Reset nazwy'; renameBtn.onclick = ()=>{ nameInput.value = `Segment ${idx}`; nameInput.dispatchEvent(new Event('change')); };
-  controls.appendChild(delBtn); controls.appendChild(renameBtn);
-
-  div.appendChild(nameInput); div.appendChild(audio); div.appendChild(controls);
-  segmentsEl.appendChild(div);
-  segments.push({ blob, name: nameInput.value, nameInput, div });
-
-  mp3BlobCache = null; // invalidate cache
-  setStatus('Segment dodany');
-  enableDrag();
+  del.onclick = () => {
+    recordings = recordings.filter(r => r.name !== input.value);
+    div.remove();
+  };
+  segmentsDiv.appendChild(div);
 }
 
-function removeSegment(div){
-  const i = segments.findIndex(s=>s.div===div);
-  if(i>=0) segments.splice(i,1);
-  div.remove();
-  mp3BlobCache = null;
-  setStatus('Segment usunięty');
-}
-
-/* drag & drop ordering */
-function enableDrag(){
-  let dragging = null;
-  document.querySelectorAll('.segment').forEach(el=>{
-    el.addEventListener('dragstart', ()=>{ dragging = el; el.style.opacity = '0.5'; });
-    el.addEventListener('dragend', ()=>{ if(dragging) dragging.style.opacity='1'; dragging=null; });
-  });
-  segmentsEl.addEventListener('dragover', e=>{
-    e.preventDefault();
-    const after = getDragAfterElement(segmentsEl, e.clientY);
-    if(!dragging) return;
-    if(after == null) segmentsEl.appendChild(dragging);
-    else segmentsEl.insertBefore(dragging, after);
-  });
-}
-function getDragAfterElement(container, y){
-  const draggableElements = [...container.querySelectorAll('.segment:not([style*="opacity: 0.5"])')];
-  return draggableElements.reduce((closest, child) => {
-    const box = child.getBoundingClientRect();
-    const offset = y - box.top - box.height/2;
-    if(offset < 0 && offset > closest.offset) return { offset, element: child };
-    else return closest;
-  }, { offset: Number.NEGATIVE_INFINITY }).element;
-}
-
-/* ---------- Merge segments into one AudioBuffer ---------- */
-async function mergeAllSegments(){
-  if(segments.length === 0) { alert('Brak segmentów do połączenia'); return null; }
-  setStatus('Łączenie segmentów...');
-  updateProgress(0.05);
-
-  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  // order according to DOM (in case user reordered)
-  const orderedDivs = [...segmentsEl.querySelectorAll('.segment')];
-  const ordered = orderedDivs.map(div => segments.find(s=>s.div===div));
-  const decoded = [];
-  for(let i=0;i<ordered.length;i++){
-    const seg = ordered[i];
-    updateProgress(0.05 + 0.7*(i/ordered.length));
-    const ab = await seg.blob.arrayBuffer();
-    // decodeAudioData expects copy in some browsers
-    const buf = await audioCtx.decodeAudioData(ab.slice(0));
-    decoded.push(buf);
-  }
-  // find max channels and sampleRate
-  const sampleRate = decoded[0].sampleRate;
-  const numChannels = Math.max(...decoded.map(b=>b.numberOfChannels));
-  const totalLength = decoded.reduce((acc,b) => acc + b.length, 0);
-  const out = audioCtx.createBuffer(numChannels, totalLength, sampleRate);
-  let offset = 0;
-  for(const buf of decoded){
-    for(let ch=0; ch<numChannels; ch++){
-      const src = (ch < buf.numberOfChannels) ? buf.getChannelData(ch) : new Float32Array(buf.length);
-      out.getChannelData(ch).set(src, offset);
-    }
-    offset += buf.length;
-  }
-  mergedBuffer = out;
-  updateProgress(1);
-  setStatus('Połączono segmenty — gotowe do eksportu');
-  return out;
-}
-
-/* ---------- MP3 encoding (lamejs) ---------- */
-function floatTo16BitPCM(float32Array){
-  const l = float32Array.length;
-  const out = new Int16Array(l);
-  for(let i=0;i<l;i++){
-    let s = Math.max(-1, Math.min(1, float32Array[i]));
-    out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
-  }
-  return out;
-}
-function encodeMp3FromAudioBuffer(abuffer, kbps=128){
-  // Stereo if 2 channels, otherwise mono replicated to two channels
-  const numChannels = abuffer.numberOfChannels;
-  const sampleRate = abuffer.sampleRate;
-  const mp3enc = new lamejs.Mp3Encoder(2, sampleRate, kbps);
-  const left = abuffer.getChannelData(0);
-  const right = numChannels>1 ? abuffer.getChannelData(1) : left;
-  const blockSize = 1152;
-  const mp3Data = [];
-  for(let i=0;i<left.length;i+=blockSize){
-    const leftChunk = left.subarray(i, i+blockSize);
-    const rightChunk = right.subarray(i, i+blockSize);
-    const left16 = floatTo16BitPCM(leftChunk);
-    const right16 = floatTo16BitPCM(rightChunk);
-    const mp3buf = mp3enc.encodeBuffer(left16, right16);
-    if(mp3buf.length) mp3Data.push(mp3buf);
-  }
-  const end = mp3enc.flush();
-  if(end.length) mp3Data.push(end);
-  // combine into one Uint8Array
-  const size = mp3Data.reduce((s, arr) => s + arr.length, 0);
-  const merged = new Uint8Array(size);
-  let offset = 0;
-  mp3Data.forEach(chunk => { merged.set(chunk, offset); offset += chunk.length; });
-  return new Blob([merged], { type: 'audio/mpeg' });
-}
-
-/* ---------- Export MP3 (merge automatically before export) ---------- */
-exportMp3Btn.onclick = async ()=>{
-  try{
-    setStatus('Przygotowywanie MP3...');
-    updateProgress(0.02);
-    if(!mergedBuffer){
-      await mergeAllSegments();
-    }
-    updateProgress(0.5);
-    mp3BlobCache = encodeMp3FromAudioBuffer(mergedBuffer, 128);
-    updateProgress(1);
-    downloadBlob(mp3BlobCache, 'nagranie.mp3');
-    setStatus('MP3 wyeksportowane');
-  }catch(err){
-    console.error(err);
-    alert('Błąd podczas eksportu MP3: ' + err.message);
-    setStatus('Błąd');
-  }finally{ updateProgress(0); }
+// === WGRYWANIE OBRAZU ===
+imageUpload.onchange = e => {
+  selectedImage = e.target.files[0];
 };
 
-/* ---------- Image upload ---------- */
-uploadImgBtn.onclick = ()=> imgInput.click();
-imgInput.onchange = (e)=>{
-  const f = e.target.files && e.target.files[0];
-  if(!f) return;
-  selectedImageFile = f;
-  setStatus('Zdjęcie wgrane: ' + f.name);
-};
+// === EKSPORT DO MP4 ===
+exportBtn.onclick = async () => {
+  if (recordings.length === 0) return alert("Brak nagrań!");
+  if (!selectedImage) return alert("Wgraj obraz!");
 
-/* ---------- Export MP4: merge if needed, encode MP3, use ffmpeg.wasm to mux image+audio -> MP4 ---------- */
-exportMp4Btn.onclick = async ()=>{
-  try{
-    setStatus('Przygotowywanie MP4...');
-    updateProgress(0.02);
-    if(!selectedImageFile){
-      if(!confirm('Nie wybrano zdjęcia. Chcesz kontynuować (bez zdjęcia nie powstanie wideo)?')) return;
-    }
-    // ensure mergedBuffer exists
-    if(!mergedBuffer) await mergeAllSegments();
-    updateProgress(0.25);
+  const { createFFmpeg, fetchFile } = FFmpeg;
+  const ffmpeg = createFFmpeg({ log: true });
+  await ffmpeg.load();
 
-    // create MP3 blob (re-encode mergedBuffer)
-    setStatus('Kodowanie MP3 (wewnętrzne)...');
-    mp3BlobCache = encodeMp3FromAudioBuffer(mergedBuffer, 128);
-    updateProgress(0.5);
-
-    // load ffmpeg if needed
-    if(!ffmpegLoaded){
-      setStatus('Ładowanie ffmpeg.wasm (może potrwać)...');
-      ffmpeg.setProgress(({ ratio })=>{ updateProgress(0.5 + ratio*0.4); setStatus('ffmpeg: ' + Math.round(ratio*100) + '%'); });
-      await ffmpeg.load();
-      ffmpegLoaded = true;
-    }
-
-    // write files into MEMFS
-    setStatus('Przesyłanie plików do ffmpeg...');
-    // image
-    if(selectedImageFile){
-      await ffmpeg.FS('writeFile', 'image.png', await fetchFile(selectedImageFile));
-    } else {
-      // if no image, create tiny placeholder PNG (white)
-      const placeholder = new Uint8Array([137,80,78,71,13,10,26,10]); // minimal invalid - better to require image, but we'll abort
-      await ffmpeg.FS('writeFile', 'image.png', placeholder);
-    }
-    // audio
-    await ffmpeg.FS('writeFile', 'audio.mp3', await fetchFile(mp3BlobCache));
-    updateProgress(0.75);
-
-    setStatus('ffmpeg: tworzenie MP4 — proszę czekać...');
-    // run ffmpeg: loop image, set duration to audio, encode video libx264 + aac
-    // scale to 1280x720 to ensure wide compatibility
-    // -y overwrite, -loop 1 -i image -i audio -c:v libx264 -preset veryfast -crf 23 -c:a aac -b:a 192k -shortest out.mp4
-    await ffmpeg.run(
-      '-y',
-      '-loop','1',
-      '-i','image.png',
-      '-i','audio.mp3',
-      '-c:v','libx264',
-      '-preset','veryfast',
-      '-crf','23',
-      '-c:a','aac',
-      '-b:a','192k',
-      '-pix_fmt','yuv420p',
-      '-vf','scale=1280:720',
-      '-shortest',
-      'out.mp4'
-    );
-
-    setStatus('Pobieranie MP4...');
-    updateProgress(0.95);
-    const data = ffmpeg.FS('readFile','out.mp4');
-    const videoBlob = new Blob([data.buffer], { type: 'video/mp4' });
-    downloadBlob(videoBlob, 'video.mp4');
-    setStatus('Gotowe — MP4 pobrane');
-    updateProgress(0);
-  }catch(err){
-    console.error(err);
-    // fallback: create a WebM using MediaRecorder + canvas approach
-    const tryFallback = confirm('Wystąpił błąd przy tworzeniu MP4 przez ffmpeg.wasm (może to być ograniczenie przeglądarki). Spróbować zapisać WEBM jako awaryjne wideo?');
-    if(tryFallback){
-      try{ await createWebMFromImageAndAudio(); }
-      catch(e){ alert('Fallback też nie zadziałał: ' + e.message); }
-    } else {
-      alert('Błąd: ' + (err.message || err));
-    }
-    setStatus('Błąd');
-    updateProgress(0);
-  }
-};
-
-/* ---------- Helper: create WEBM fallback (canvas capture + MediaRecorder) ---------- */
-async function createWebMFromImageAndAudio(){
-  if(!mergedBuffer) await mergeAllSegments();
-  // pick image if present, else white canvas
-  let img = null;
-  if(selectedImageFile){
-    img = await fileToImage(selectedImageFile);
-  }
-  const canvas = document.createElement('canvas');
-  canvas.width = 1280; canvas.height = 720;
-  const ctx = canvas.getContext('2d');
-
-  // draw static image
-  if(img){
-    // fit image to canvas (cover)
-    const ratio = Math.max(canvas.width/img.width, canvas.height/img.height);
-    const w = img.width*ratio, h = img.height*ratio;
-    const x = (canvas.width - w)/2, y = (canvas.height - h)/2;
-    ctx.drawImage(img, x, y, w, h);
-  } else {
-    ctx.fillStyle = '#fff0f7'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  // połącz wszystkie nagrania
+  const audioFiles = [];
+  for (let i = 0; i < recordings.length; i++) {
+    const data = await recordings[i].blob.arrayBuffer();
+    const fname = `a${i}.webm`;
+    ffmpeg.FS('writeFile', fname, new Uint8Array(data));
+    audioFiles.push(`file '${fname}'`);
   }
 
-  // create audio stream from AudioBuffer
-  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  const dest = audioCtx.createMediaStreamDestination();
-  const src = audioCtx.createBufferSource();
-  src.buffer = mergedBuffer;
-  src.connect(dest);
-  // connect to destination (silent) to avoid playing out loud, DO NOT connect to audioCtx.destination
-  // capture canvas stream and add audio track
-  const canvasStream = canvas.captureStream(30);
-  dest.stream.getAudioTracks().forEach(t => canvasStream.addTrack(t));
-  const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm';
-  const rec = new MediaRecorder(canvasStream, { mimeType: mime });
-  const chunks = [];
-  rec.ondataavailable = e => { if(e.data && e.data.size) chunks.push(e.data); };
-  rec.start();
-  src.start();
-  await new Promise(resolve => { src.onended = () => { setTimeout(()=>{ if(rec.state==='recording') rec.stop(); resolve(); }, 100); }; });
-  // wait for stop
-  await new Promise(resolve => rec.onstop = resolve);
-  const blob = new Blob(chunks, { type: mime });
-  downloadBlob(blob, 'video.webm');
-  setStatus('Gotowe — WEBM pobrane (fallback)');
-}
+  ffmpeg.FS('writeFile', 'list.txt', new TextEncoder().encode(audioFiles.join('\n')));
+  await ffmpeg.run('-f', 'concat', '-safe', '0', '-i', 'list.txt', '-c', 'copy', 'merged.webm');
 
-/* ---------- Utilities ---------- */
-function downloadBlob(blob, name){
-  const url = URL.createObjectURL(blob);
+  const imageData = await fetchFile(selectedImage);
+  ffmpeg.FS('writeFile', 'image.png', imageData);
+
+  await ffmpeg.run('-loop', '1', '-i', 'image.png', '-i', 'merged.webm', '-c:v', 'libx264', '-c:a', 'aac',
+                   '-shortest', '-pix_fmt', 'yuv420p', 'output.mp4');
+
+  const data = ffmpeg.FS('readFile', 'output.mp4');
+  const url = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
+  preview.src = url;
+
   const a = document.createElement('a');
-  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
-  URL.revokeObjectURL(url);
-}
-
-function setStatus(text){ statusEl.textContent = 'Status: ' + text; }
-function updateProgress(ratio){
-  ratio = Math.max(0, Math.min(1, ratio));
-  progressBar.style.width = (ratio*100) + '%';
-}
-
-/* ---------- small helper to convert File->Image ---------- */
-function fileToImage(file){
-  return new Promise((resolve, reject)=>{
-    const img = new Image();
-    img.onload = ()=> resolve(img);
-    img.onerror = reject;
-    img.src = URL.createObjectURL(file);
-  });
-}
-
-/* ---------- small helper fetchFile wrapper from ffmpeg.wasm global ---------- */
-async function fetchFile(input){
-  // FFmpeg provided fetchFile works if imported; our global FFmpeg has fetchFile
-  if(FFmpeg && FFmpeg.fetchFile) return FFmpeg.fetchFile(input);
-  // fallback: read as arrayBuffer
-  if(input instanceof Blob) return new Uint8Array(await input.arrayBuffer());
-  if(input instanceof File) return new Uint8Array(await input.arrayBuffer());
-  throw new Error('fetchFile not available for this input type');
-}
-
-})(); // IIFE end
+  a.href = url;
+  a.download = 'nagranie.mp4';
+  a.textContent = '⬇️ Pobierz MP4';
+  document.body.appendChild(a);
+};
 </script>
 </body>
 </html>
