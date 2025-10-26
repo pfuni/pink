@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>🎀 Glosoweczki Karolinki 🎀</title>
+<title>🎀 Glosoweczki Karolini 🎀</title>
 <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js"></script>
 <style>
 body {
@@ -26,7 +26,13 @@ button:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(255,150,200,.
   display:flex;flex-direction:column;align-items:center;padding:14px;
   cursor:grab;animation:fadeIn .4s ease;
 }
-.segment input{border:none;border-radius:10px;padding:6px;width:90%;margin-bottom:8px;text-align:center;}
+.segment input{
+  border:none;border-radius:10px;padding:6px;width:90%;
+  margin-bottom:8px;text-align:center;background:rgba(255,255,255,.6);
+  box-shadow:inset 0 2px 5px rgba(255,150,200,.3);font-size:15px;font-weight:500;
+  transition:all .2s;
+}
+.segment input:focus{outline:none;box-shadow:0 0 0 2px #ff8cc6;}
 .segment audio{width:100%;margin-bottom:8px;}
 .segment button{background:#ff8fbc;padding:6px 12px;font-size:13px;}
 .segment button:hover{background:#ff75ae;}
@@ -34,7 +40,7 @@ button:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(255,150,200,.
 </style>
 </head>
 <body>
-<h1>🎀 Glosoweczki Karolinki 🎀</h1>
+<h1>🎀 Glosoweczki Karolini 🎀</h1>
 <div>
   <button id="recordBtn">🎙️ Nagraj</button>
   <button id="exportBtn">💾 Eksportuj MP3</button>
@@ -73,15 +79,21 @@ function renderSegments(){
   recordings.forEach((r,i)=>{
     const div=document.createElement("div");
     div.className="segment";div.draggable=true;
+
+    // Edytowalna nazwa segmentu
     const inp=document.createElement("input");
     inp.value=r.name;
-    inp.onchange=()=>r.name=inp.value.trim()||"Segment "+(i+1);
+    inp.placeholder="Nazwa segmentu...";
+    inp.addEventListener("change",()=>r.name=inp.value.trim()||"Segment "+(i+1));
+
     const audio=document.createElement("audio");
     audio.controls=true;
     audio.src=URL.createObjectURL(r.blob);
+
     const del=document.createElement("button");
     del.textContent="❌ Usuń";
     del.onclick=()=>{recordings.splice(i,1);renderSegments();};
+
     div.append(inp,audio,del);
     container.append(div);
   });
@@ -108,7 +120,7 @@ document.getElementById("exportBtn").onclick = async ()=>{
   const ctx = new AudioContext();
   let fullBuffer;
 
-  // Dekodowanie i łączenie
+  // Dekodowanie i łączenie segmentów
   for(const rec of recordings){
     const arr = await rec.blob.arrayBuffer();
     const buf = await ctx.decodeAudioData(arr);
@@ -127,7 +139,7 @@ document.getElementById("exportBtn").onclick = async ()=>{
     }
   }
 
-  // konwersja do MP3 przez lamejs
+  // Konwersja do MP3 przez lamejs
   const left = fullBuffer.getChannelData(0);
   const right = fullBuffer.numberOfChannels>1 ? fullBuffer.getChannelData(1) : left;
   const mp3encoder = new lamejs.Mp3Encoder(2, fullBuffer.sampleRate, 128);
