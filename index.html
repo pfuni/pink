@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Różowy Rekorder 🎀</title>
+<style>
+    body {
+        background: linear-gradient(145deg, #ffd6ec, #ffb8d2);
+        font-family: "SF Pro Display", "Helvetica Neue", sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        color: #333;
+        margin: 0;
+    }
+    h1 {
+        font-size: 2rem;
+        color: #ff5caa;
+        margin-bottom: 10px;
+    }
+    .controls {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+    button {
+        background: #ff9ac9;
+        border: none;
+        border-radius: 12px;
+        padding: 10px 20px;
+        color: white;
+        font-weight: 600;
+        box-shadow: 0 4px 10px rgba(255, 150, 200, 0.5);
+        cursor: pointer;
+        transition: transform 0.1s, box-shadow 0.2s;
+    }
+    button:hover {
+        transform: scale(1.05);
+        box-shadow: 0 6px 15px rgba(255, 150, 200, 0.6);
+    }
+    #segments {
+        width: 80%;
+        max-width: 600px;
+        background: rgba(255,255,255,0.6);
+        border-radius: 16px;
+        padding: 20px;
+        backdrop-filter: blur(8px);
+        box-shadow: 0 4px 15px rgba(255, 150, 200, 0.4);
+    }
+    .segment {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: white;
+        border-radius: 12px;
+        padding: 10px;
+        margin: 8px 0;
+        cursor: grab;
+        transition: background 0.2s;
+    }
+    .segment:hover {
+        background: #fff4f8;
+    }
+    .segment audio {
+        width: 60%;
+    }
+    .segment button {
+        background: #ff8fbc;
+    }
+</style>
+</head>
+<body>
+    <h1>🎀 Różowy Rekorder 🎀</h1>
+    <div class="controls">
+        <button id="recordBtn">🎙️ Nagraj segment</button>
+        <button id="mergeBtn">✨ Połącz i eksportuj (MP4)</button>
+    </div>
+    <div id="segments"></div>
+
+<script>
+let mediaRecorder;
+let chunks = [];
+let recordings = [];
+let isRecording = false;
+
+const recordBtn = document.getElementById("recordBtn");
+const mergeBtn = document.getElementById("mergeBtn");
+const container = document.getElementById("segments");
+
+recordBtn.addEventListener("click", async () => {
+    if (!isRecording) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        chunks = [];
+
+        mediaRecorder.ondataavailable = e => chunks.push(e.data);
+        mediaRecorder.onstop = () => {
+            const blob = new Blob(chunks, { type: "audio/webm" });
+            recordings.push(blob);
+            renderSegments();
+        };
+
+        mediaRecorder.start();
+        recordBtn.textContent = "⏹️ Zatrzymaj nagrywanie";
+        isRecording = true;
+    } else {
+        mediaRecorder.stop();
+        recordBtn.textContent = "🎙️ Nagraj segment";
+        isRecording = false;
+    }
+});
+
+function renderSegments() {
+    container.innerHTML = "";
+    recordings.forEach((rec, i) => {
+        const div = document.createElement("div");
+        div.className = "segment";
+        div.draggable = true;
+
+        const audio = document.createElement("audio");
+        audio.controls = true;
+        audio.src = URL.createObjectURL(rec);
+
+        const del = document.createElement("button");
+        del.textContent = "❌ Usuń";
+        del.onclick = () => {
+            recordings.splice(i, 1);
+            renderSegments();
+        };
+
+        div.appendChild(audio);
+        div.appendChild(del);
+        container.appendChild(div);
+    });
+
+    enableDragAndDrop();
+}
+
+function enableDragAndDrop() {
+    const segments = document.querySelectorAll(".segment");
+    let dragged;
+
+    segments.forEach(seg => {
+        seg.addEventListener("dragstart", () => dragged = seg);
+        seg.addEventListener("dragover", e => e.preventDefault());
+        seg.addEventListener("drop", e => {
+            e.preventDefault();
+            const parent = seg.parentNode;
+            const nodes = Array.from(parent.children);
+            const from = nodes.indexOf(dragged);
+            const to = nodes.indexOf(seg);
+            recordings.splice(to, 0, recordings.splice(from, 1)[0]);
+            renderSegments();
+        });
+    });
+}
+
+mergeBtn.addEventListener("click", async () => {
+    if (recordings.length === 0) return alert("Brak segmentów!");
+
+    const combined = new Blob(recordings, { type: "audio/webm" });
+    const audioUrl = URL.createObjectURL(combined);
+
+    const a = document.createElement("a");
+    a.href = audioUrl;
+    a.download = "nagranie.mp4"; // eksport w mp4 audio
+    a.click();
+});
+</script>
+</body>
+</html>
