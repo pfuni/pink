@@ -1,331 +1,160 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pl">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Pink Mac Audio Studio — poprawione</title>
-<!-- lamejs for MP3 encoding -->
-<script src="https://unpkg.com/lamejs@1.2.0/lame.min.js"></script>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>🎀 Glosoweczki Karolinki 🎀</title>
+<script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js"></script>
 <style>
-  body{background:linear-gradient(180deg,#ffd6ec,#ffeaf6);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; margin:0;padding:36px;color:#333;text-align:center;}
-  h1{color:#ff4fa3;margin:0 0 18px 0}
-  .controls{display:flex;gap:10px;justify-content:center;align-items:center;margin-bottom:18px;flex-wrap:wrap}
-  button, select{border:0;border-radius:12px;padding:10px 16px;font-weight:600;cursor:pointer;box-shadow:0 6px 18px rgba(255,120,170,0.18)}
-  button{background:linear-gradient(180deg,#ff7fc0,#ff5caa);color:#fff}
-  select{background:#fff;padding:8px;}
-  #segments{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;max-width:980px;margin:0 auto}
-  .segment{background:rgba(255,255,255,0.85);border-radius:14px;padding:12px;box-shadow:0 8px 30px rgba(200,100,160,0.08);display:flex;flex-direction:column;align-items:center;gap:8px;cursor:grab}
-  .segment input{width:100%;border-radius:10px;padding:8px;border:1px solid #ffd7ea;text-align:center;font-weight:600}
-  .segment audio{width:100%}
-  .segment .row{display:flex;gap:8px;width:100%;justify-content:center}
-  .small{font-size:13px;color:#7b5f6a}
-  footer{margin-top:18px;color:#7b5f6a;font-size:13px}
+body {
+  background: linear-gradient(135deg,#ffd9ec,#ffb8d2);
+  font-family: "SF Pro Display","Helvetica Neue",sans-serif;
+  display:flex;flex-direction:column;align-items:center;min-height:100vh;
+  margin:0;padding-top:40px;color:#333;
+}
+h1{color:#ff5caa;text-shadow:0 2px 6px rgba(255,140,180,.5);}
+button{
+  border:none;border-radius:12px;font-weight:600;
+  box-shadow:0 4px 10px rgba(255,150,200,.4);transition:.2s;cursor:pointer;
+  background:#ff9ac9;color:white;padding:10px 20px;margin:0 8px;
+}
+button:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(255,150,200,.5);}
+#segments{width:80%;max-width:700px;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:15px;margin-top:20px;}
+.segment{
+  background:rgba(255,255,255,.7);backdrop-filter:blur(8px);
+  border-radius:20px;box-shadow:0 4px 14px rgba(255,160,200,.4);
+  display:flex;flex-direction:column;align-items:center;padding:14px;
+  cursor:grab;animation:fadeIn .4s ease;
+}
+.segment input{border:none;border-radius:10px;padding:6px;width:90%;margin-bottom:8px;text-align:center;}
+.segment audio{width:100%;margin-bottom:8px;}
+.segment button{background:#ff8fbc;padding:6px 12px;font-size:13px;}
+.segment button:hover{background:#ff75ae;}
+@keyframes fadeIn{from{opacity:0;transform:scale(.95);}to{opacity:1;transform:scale(1);}}
 </style>
 </head>
 <body>
-  <h1>🎀 Pink Mac Audio Studio — poprawione</h1>
-  <div class="controls">
-    <button id="startRec">🎙️ Nagraj segment</button>
-    <button id="stopRec" disabled>⏹️ Zatrzymaj</button>
-    <select id="formatSelect" title="Format eksportu">
-      <option value="wav">WAV (bezstratny)</option>
-      <option value="mp3">MP3 (stratny, mały rozmiar)</option>
-      <option value="webm">WEBM (kontener)</option>
-      <option value="ogg">OGG (kontener)</option>
-    </select>
-    <button id="mergeBtn">🔗 Połącz</button>
-    <button id="exportBtn" disabled>💾 Eksportuj</button>
-  </div>
-
-  <div id="segments"></div>
-
-  <footer class="small">Uwaga: wygenerowane MP3 powstaje przez enkodowanie po stronie klienta (lamejs). Do działania wymagane: nowoczesna przeglądarka, https / localhost.</footer>
+<h1>🎀 Glosoweczki Karolinki 🎀</h1>
+<div>
+  <button id="recordBtn">🎙️ Nagraj</button>
+  <button id="exportBtn">💾 Eksportuj MP3</button>
+</div>
+<div id="segments"></div>
 
 <script>
-/* ----- Stan ----- */
-let mediaRecorder = null;
-let recChunks = [];
-let segments = []; // {blob, name, div}
-let mergedAudioBuffer = null;
-let lastExportBlob = null;
+let isRecording=false, mediaRecorder,chunks=[],recordings=[];
 
-/* ----- UI refs ----- */
-const startBtn = document.getElementById('startRec');
-const stopBtn = document.getElementById('stopRec');
-const mergeBtn = document.getElementById('mergeBtn');
-const exportBtn = document.getElementById('exportBtn');
-const segmentsEl = document.getElementById('segments');
-const formatSelect = document.getElementById('formatSelect');
-
-async function startRecording(){
-  try{
+// Toggle nagrywania
+document.getElementById("recordBtn").onclick = async () => {
+  if(!isRecording){
     const stream = await navigator.mediaDevices.getUserMedia({audio:true});
     mediaRecorder = new MediaRecorder(stream);
-    recChunks = [];
-    mediaRecorder.ondataavailable = e => { if(e.data && e.data.size) recChunks.push(e.data); };
+    chunks=[];
+    mediaRecorder.ondataavailable = e => chunks.push(e.data);
     mediaRecorder.onstop = () => {
-      const blob = new Blob(recChunks, {type:'audio/webm'});
-      addSegment(blob);
-      // stop tracks to free mic
-      stream.getTracks().forEach(t => t.stop());
+      const blob = new Blob(chunks,{type:"audio/webm"});
+      recordings.push({blob,name:"Segment "+(recordings.length+1)});
+      renderSegments();
     };
     mediaRecorder.start();
-    startBtn.disabled = true; stopBtn.disabled = false;
-    startBtn.textContent = '🔴 Nagrywanie...';
-  }catch(err){
-    alert('Błąd dostępu do mikrofonu: ' + err.message);
-  }
-}
-function stopRecording(){
-  if(mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
-  startBtn.disabled = false; stopBtn.disabled = true;
-  startBtn.textContent = '🎙️ Nagraj segment';
-}
-
-/* ----- Segmenty UI ----- */
-function addSegment(blob){
-  const idx = segments.length + 1;
-  const div = document.createElement('div'); div.className='segment'; div.draggable=true;
-  const name = document.createElement('input'); name.value = `Segment ${idx}`; name.placeholder='Nazwa segmentu';
-  const audio = document.createElement('audio'); audio.controls = true; audio.src = URL.createObjectURL(blob);
-  const row = document.createElement('div'); row.className='row';
-  const del = document.createElement('button'); del.textContent = '🗑️ Usuń'; del.onclick = ()=>{ removeSegment(div); };
-  row.appendChild(del);
-  div.appendChild(name); div.appendChild(audio); div.appendChild(row);
-  segmentsEl.appendChild(div);
-  segments.push({blob, nameInput:name, div});
-  enableDrag();
-  lastExportBlob = null; exportBtn.disabled = true;
-}
-function removeSegment(div){
-  const idx = segments.findIndex(s=>s.div===div);
-  if(idx>=0) segments.splice(idx,1);
-  div.remove();
-  // re-label default names
-  segments.forEach((s,i)=>{ if(s.nameInput && s.nameInput.value.startsWith('Segment ')) s.nameInput.value = `Segment ${i+1}`; });
-  lastExportBlob = null; exportBtn.disabled = true;
-}
-
-/* ----- Drag & drop reordering ----- */
-function enableDrag(){
-  let dragging = null;
-  segmentsEl.querySelectorAll('.segment').forEach(el=>{
-    el.addEventListener('dragstart', ()=> { dragging = el; el.style.opacity = '0.5'; });
-    el.addEventListener('dragend', ()=> { if(dragging) dragging.style.opacity='1'; dragging=null; });
-  });
-  segmentsEl.addEventListener('dragover', e => {
-    e.preventDefault();
-    const after = getDragAfterElement(segmentsEl, e.clientY);
-    if(!after) segmentsEl.appendChild(dragging);
-    else segmentsEl.insertBefore(dragging, after);
-  });
-}
-function getDragAfterElement(container, y){
-  const els = [...container.querySelectorAll('.segment:not([style*=\"opacity: 0.5\"])')];
-  return els.reduce((closest, child) => {
-    const box = child.getBoundingClientRect();
-    const offset = y - box.top - box.height/2;
-    if(offset < 0 && offset > closest.offset) return { offset, element: child };
-    else return closest;
-  }, { offset: Number.NEGATIVE_INFINITY }).element;
-}
-
-/* ----- Merge logic: decode all blobs, concatenate into one AudioBuffer ----- */
-async function mergeSegments(){
-  if(segments.length === 0){ alert('Brak segmentów do połączenia'); return; }
-  // order according to DOM (user may have reordered)
-  const order = [...segmentsEl.querySelectorAll('.segment')].map(div => segments.find(s=>s.div===div));
-  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  // decode each blob
-  const decoded = [];
-  for(const seg of order){
-    const ab = await seg.blob.arrayBuffer();
-    const buf = await audioCtx.decodeAudioData(ab.slice(0)); // decodeAudioData needs copy in some browsers
-    decoded.push(buf);
-  }
-  // determine number of channels (use max channels among buffers)
-  const numChannels = Math.max(...decoded.map(b=>b.numberOfChannels));
-  const sampleRate = decoded[0].sampleRate; // assume same sampleRate (MediaRecorder usually uses same)
-  const totalLength = decoded.reduce((acc,b)=>acc + b.length, 0);
-  const out = audioCtx.createBuffer(numChannels, totalLength, sampleRate);
-  // copy data channel by channel
-  let offset = 0;
-  decoded.forEach(buf=>{
-    for(let ch=0; ch<numChannels; ch++){
-      const src = (ch < buf.numberOfChannels) ? buf.getChannelData(ch) : new Float32Array(buf.length); // silence if channel missing
-      out.getChannelData(ch).set(src, offset);
-    }
-    offset += buf.length;
-  });
-  mergedAudioBuffer = out;
-  alert('✅ Segmenty połączone (gotowe do eksportu). Wybierz format i kliknij Eksportuj.');
-  // enable export
-  lastExportBlob = null; exportBtn.disabled = false;
-}
-
-/* ----- Exporters ----- */
-/* WAV exporter: convert AudioBuffer -> WAV ArrayBuffer */
-function audioBufferToWav(abuffer){
-  const numOfChan = abuffer.numberOfChannels;
-  const length = abuffer.length * numOfChan * 2 + 44;
-  const buffer = new ArrayBuffer(length);
-  const view = new DataView(buffer);
-  let offset = 0;
-  function writeString(s){ for(let i=0;i<s.length;i++){ view.setUint8(offset+i,s.charCodeAt(i)); } offset += s.length; }
-  writeString('RIFF'); view.setUint32(4, 36 + abuffer.length * numOfChan * 2, true); writeString('WAVE');
-  writeString('fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true);
-  view.setUint16(22, numOfChan, true); view.setUint32(24, abuffer.sampleRate, true);
-  view.setUint32(28, abuffer.sampleRate * numOfChan * 2, true); view.setUint16(32, numOfChan * 2, true);
-  view.setUint16(34, 16, true); writeString('data'); view.setUint32(40, abuffer.length * numOfChan * 2, true);
-  // write interleaved PCM16
-  let index = 44;
-  const channelData = [];
-  for(let ch=0; ch<numOfChan; ch++) channelData.push(abuffer.getChannelData(ch));
-  for(let i=0;i<abuffer.length;i++){
-    for(let ch=0; ch<numOfChan; ch++){
-      let sample = Math.max(-1, Math.min(1, channelData[ch][i] || 0));
-      view.setInt16(index, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
-      index += 2;
-    }
-  }
-  return buffer;
-}
-
-/* MP3 exporter using lamejs */
-function encodeMp3FromAudioBuffer(abuffer, kbps=128){
-  // convert Float32 -> Int16 interleaved then feed to lamejs
-  const numChannels = abuffer.numberOfChannels;
-  const sampleRate = abuffer.sampleRate;
-  const mp3Encoder = new lamejs.Mp3Encoder(numChannels, sampleRate, kbps);
-  const samplesLeft = abuffer.getChannelData(0);
-  let samplesRight = null;
-  if(numChannels > 1) samplesRight = abuffer.getChannelData(1);
-  const blockSize = 1152;
-  const mp3Data = [];
-  // interleave and encode in chunks
-  if(numChannels === 1){
-    for(let i=0;i<samplesLeft.length;i+=blockSize){
-      const leftChunk = samplesLeft.subarray(i, i+blockSize);
-      const pcm16 = floatTo16BitPCM(leftChunk);
-      const mp3buf = mp3Encoder.encodeBuffer(pcm16);
-      if(mp3buf.length) mp3Data.push(new Int8Array(mp3buf));
-    }
-  }else{
-    for(let i=0;i<samplesLeft.length;i+=blockSize){
-      const leftChunk = samplesLeft.subarray(i, i+blockSize);
-      const rightChunk = samplesRight.subarray(i, i+blockSize);
-      const left16 = floatTo16BitPCM(leftChunk);
-      const right16 = floatTo16BitPCM(rightChunk);
-      const mp3buf = mp3Encoder.encodeBuffer(left16, right16);
-      if(mp3buf.length) mp3Data.push(new Int8Array(mp3buf));
-    }
-  }
-  const end = mp3Encoder.flush();
-  if(end.length) mp3Data.push(new Int8Array(end));
-  // combine
-  const blob = new Blob(mp3Data, {type:'audio/mpeg'});
-  return blob;
-}
-function floatTo16BitPCM(float32Array){
-  const out = new Int16Array(float32Array.length);
-  for(let i=0;i<float32Array.length;i++){
-    let s = Math.max(-1, Math.min(1, float32Array[i]));
-    out[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-  }
-  return out;
-}
-
-/* WEBM/OGG exporter: play buffer via AudioContext -> capture MediaStreamDestination with MediaRecorder */
-async function encodeViaMediaRecorder(abuffer, mimeTypeCandidate){
-  // create a real-time AudioContext to play into MediaStreamDestination
-  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  const dest = audioCtx.createMediaStreamDestination();
-  const src = audioCtx.createBufferSource();
-  src.buffer = abuffer;
-  src.connect(dest);
-  src.connect(audioCtx.destination); // also audible (optional) — could omit to be silent
-  // pick supported mime
-  const candidates = [
-    mimeTypeCandidate,
-    'audio/webm;codecs=opus',
-    'audio/ogg;codecs=opus',
-    'audio/webm',
-    'audio/ogg'
-  ];
-  let mime = '';
-  for(const c of candidates){
-    if(MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(c)){ mime = c; break; }
-  }
-  if(!mime) mime = candidates[0]; // fallback
-  const recorder = new MediaRecorder(dest.stream, { mimeType: mime });
-  const chunks = [];
-  return new Promise((resolve, reject) => {
-    recorder.ondataavailable = e => { if(e.data && e.data.size) chunks.push(e.data); };
-    recorder.onstop = async () => {
-      const blob = new Blob(chunks, { type: mime });
-      resolve(blob);
-      // close
-      audioCtx.close();
-    };
-    recorder.onerror = (ev) => reject(ev);
-    recorder.start();
-    src.start();
-    // stop after audio ends
-    src.onended = ()=> {
-      setTimeout(()=>{ if(recorder.state==='recording') recorder.stop(); }, 50);
-    };
-  });
-}
-
-/* ----- Main export orchestrator ----- */
-exportBtn.onclick = async function(){
-  if(!mergedAudioBuffer){ alert('Najpierw kliknij "Połącz" aby stworzyć połączony AudioBuffer.'); return; }
-  const format = formatSelect.value;
-  lastExportBlob = null;
-  exportBtn.disabled = true;
-  exportBtn.textContent = 'Przetwarzam...';
-
-  try{
-    if(format === 'wav'){
-      const wavBuf = audioBufferToWav(mergedAudioBuffer);
-      lastExportBlob = new Blob([wavBuf], {type:'audio/wav'});
-    } else if(format === 'mp3'){
-      if(typeof lamejs === 'undefined'){ alert('Brak lamejs — MP3 niedostępne'); }
-      else {
-        // use lamejs to encode (stereo support: uses first two channels)
-        lastExportBlob = encodeMp3FromAudioBuffer(mergedAudioBuffer, 128);
-      }
-    } else if(format === 'webm' || format === 'ogg'){
-      // use MediaRecorder capture path
-      const mimeCandidate = format === 'webm' ? 'audio/webm;codecs=opus' : 'audio/ogg;codecs=opus';
-      lastExportBlob = await encodeViaMediaRecorder(mergedAudioBuffer, mimeCandidate);
-    } else {
-      throw new Error('Nieobsługiwany format');
-    }
-
-    // download
-    const url = URL.createObjectURL(lastExportBlob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `nagranie.${format}`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  }catch(err){
-    console.error(err);
-    alert('Błąd podczas eksportu: ' + (err.message || err));
-  }finally{
-    exportBtn.disabled = false;
-    exportBtn.textContent = '💾 Eksportuj';
+    isRecording = true;
+    recordBtn.textContent="⏹️ Zatrzymaj";
+  } else {
+    mediaRecorder.stop();
+    isRecording = false;
+    recordBtn.textContent="🎙️ Nagraj";
   }
 };
 
-/* ----- UI bindings ----- */
-startBtn.onclick = startRecording;
-stopBtn.onclick = stopRecording;
-mergeBtn.onclick = async () => { mergeBtn.disabled = true; mergeBtn.textContent = 'Łączenie...'; await mergeSegments(); mergeBtn.textContent = '🔗 Połącz'; mergeBtn.disabled = false; };
+// renderowanie segmentów
+const container = document.getElementById("segments");
+function renderSegments(){
+  container.innerHTML="";
+  recordings.forEach((r,i)=>{
+    const div=document.createElement("div");
+    div.className="segment";div.draggable=true;
+    const inp=document.createElement("input");
+    inp.value=r.name;
+    inp.onchange=()=>r.name=inp.value.trim()||"Segment "+(i+1);
+    const audio=document.createElement("audio");
+    audio.controls=true;
+    audio.src=URL.createObjectURL(r.blob);
+    const del=document.createElement("button");
+    del.textContent="❌ Usuń";
+    del.onclick=()=>{recordings.splice(i,1);renderSegments();};
+    div.append(inp,audio,del);
+    container.append(div);
+  });
+  enableDrag();
+}
+function enableDrag(){
+  let dragEl;
+  document.querySelectorAll(".segment").forEach(seg=>{
+    seg.addEventListener("dragstart",()=>dragEl=seg);
+    seg.addEventListener("dragover",e=>e.preventDefault());
+    seg.addEventListener("drop",e=>{
+      e.preventDefault();
+      const nodes=[...seg.parentNode.children];
+      const from=nodes.indexOf(dragEl),to=nodes.indexOf(seg);
+      recordings.splice(to,0,recordings.splice(from,1)[0]);
+      renderSegments();
+    });
+  });
+}
 
+// Eksport MP3 z połączonych segmentów
+document.getElementById("exportBtn").onclick = async ()=>{
+  if(!recordings.length) return alert("Brak segmentów!");
+  const ctx = new AudioContext();
+  let fullBuffer;
+
+  // Dekodowanie i łączenie
+  for(const rec of recordings){
+    const arr = await rec.blob.arrayBuffer();
+    const buf = await ctx.decodeAudioData(arr);
+    if(!fullBuffer){
+      fullBuffer = ctx.createBuffer(buf.numberOfChannels, buf.length, buf.sampleRate);
+      for(let c=0;c<buf.numberOfChannels;c++){
+        fullBuffer.getChannelData(c).set(buf.getChannelData(c),0);
+      }
+    }else{
+      const tmp = ctx.createBuffer(buf.numberOfChannels, fullBuffer.length+buf.length, buf.sampleRate);
+      for(let c=0;c<buf.numberOfChannels;c++){
+        tmp.getChannelData(c).set(fullBuffer.getChannelData(c),0);
+        tmp.getChannelData(c).set(buf.getChannelData(c), fullBuffer.length);
+      }
+      fullBuffer=tmp;
+    }
+  }
+
+  // konwersja do MP3 przez lamejs
+  const left = fullBuffer.getChannelData(0);
+  const right = fullBuffer.numberOfChannels>1 ? fullBuffer.getChannelData(1) : left;
+  const mp3encoder = new lamejs.Mp3Encoder(2, fullBuffer.sampleRate, 128);
+  const blockSize = 1152;
+  let mp3Data = [];
+  for (let i = 0; i < left.length; i += blockSize) {
+    const leftChunk = left.subarray(i, i + blockSize);
+    const rightChunk = right.subarray(i, i + blockSize);
+    const mp3buf = mp3encoder.encodeBuffer(convertFloat32ToInt16(leftChunk), convertFloat32ToInt16(rightChunk));
+    if (mp3buf.length > 0) mp3Data.push(mp3buf);
+  }
+  const mp3buf = mp3encoder.flush();
+  if(mp3buf.length>0) mp3Data.push(mp3buf);
+  const blob = new Blob(mp3Data,{type:"audio/mpeg"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="nagranie.mp3";
+  a.click();
+  alert("✅ Plik MP3 został wyeksportowany!");
+};
+
+function convertFloat32ToInt16(buffer){
+  let l = buffer.length;
+  const buf = new Int16Array(l);
+  while (l--) buf[l] = Math.max(-1, Math.min(1, buffer[l])) * 0x7fff;
+  return buf;
+}
 </script>
 </body>
 </html>
